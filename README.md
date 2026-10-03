@@ -4,6 +4,8 @@ A shared investigation workspace for people and their own agents. Built as a Clo
 
 Keep using Codex, pi, OpenCode, scripts, and whichever data sources help. Publish the useful evidence into a durable room: the actual result, its known origin, optional query or instructions, a useful view, and links to the observations it builds on. Colleagues can inspect the same evidence, fork a thread, and continue with their own tools.
 
+**Start with the [illustrated project overview](docs/overview.md)** for architecture diagrams, a worked investigation, the custom component boundary, and what is implemented versus proposed. An [offline HTML edition](docs/overview.html) includes rendered diagrams you can enlarge.
+
 ![Fieldwork: a shared investigation with saved telemetry, deployment events, and an agent-authored retry timeline](docs/workspace.png)
 
 ## Try it

@@ -1,5 +1,7 @@
 # Architecture and API
 
+For a guided introduction with diagrams and a worked example, start with the [illustrated overview](overview.md).
+
 Fieldwork separates three things: collection with the investigator's tools, publication of durable evidence, and rendering that evidence. A native adapter is useful, but not a requirement for participation.
 
 ## Storage and collaboration

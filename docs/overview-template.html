@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="An illustrated guide to Fieldwork: shared evidence, independent agents, Cloudflare architecture, and extensible visualizations.">
+  <title>Fieldwork — an illustrated walkthrough</title>
+  <style>
+    :root { color-scheme: light; --ink: #17332d; --muted: #637570; --accent: #246854; --line: #d9e2dc; --paper: #fafbf7; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 28px; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.7 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    a { color: var(--accent); text-underline-offset: 3px; }
+    a:hover { color: #11392d; }
+    button { font: inherit; cursor: pointer; border: 1px solid #b2c6bc; border-radius: 6px; background: #fff; color: var(--accent); padding: 5px 12px; white-space: nowrap; }
+    button:hover { background: #eaf3ed; }
+    button:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid #2a8367; outline-offset: 4px; }
+    .masthead { border-bottom: 1px solid var(--line); padding: 23px max(24px, calc((100vw - 1360px) / 2)); display: flex; align-items: center; justify-content: space-between; gap: 24px; background: #f0f5ee; }
+    .brand { font-size: 23px; font-weight: 700; letter-spacing: -1px; color: var(--ink); text-decoration: none; }
+    .brand::before { content: "✳"; font-size: 28px; margin-right: 10px; color: #53856f; vertical-align: -2px; }
+    .masthead span { font: 11px/1.5 ui-monospace, monospace; letter-spacing: 1.2px; color: var(--muted); text-align: right; }
+    .layout { display: grid; grid-template-columns: 225px minmax(0, 1fr); gap: 52px; max-width: 1360px; margin: auto; padding: 48px 24px 80px; }
+    aside { position: sticky; top: 28px; align-self: start; }
+    aside summary { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; cursor: pointer; }
+    nav { display: grid; gap: 4px; }
+    nav a { font-size: 13px; line-height: 1.5; padding: 8px 10px; border-left: 2px solid var(--line); color: #4f6860; text-decoration: none; }
+    nav a:hover { border-color: var(--accent); background: #edf4ee; }
+    .side-note { font-size: 12px; line-height: 1.7; color: var(--muted); margin: 26px 10px 0; }
+    main { min-width: 0; max-width: 1000px; }
+    h1 { font: 400 clamp(34px, 4vw, 56px)/1.12 Georgia, "Times New Roman", serif; letter-spacing: -1.3px; margin: 0 0 24px; max-width: 840px; }
+    h2 { font-size: 26px; line-height: 1.25; letter-spacing: -.6px; margin: 58px 0 22px; padding-top: 28px; border-top: 1px solid var(--line); }
+    h3 { font-size: 20px; line-height: 1.4; margin: 34px 0 16px; }
+    p { margin: 0 0 20px; max-width: 86ch; }
+    h1 + p { font-size: 20px; line-height: 1.6; color: #375d4d; }
+    strong { font-weight: 650; }
+    .table-scroll { overflow-x: auto; margin: 24px 0; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.6; }
+    th, td { text-align: left; vertical-align: top; padding: 14px 16px; border-bottom: 1px solid var(--line); min-width: 130px; }
+    th { background: #eff4ed; font-size: 12px; letter-spacing: .3px; color: #3a5e4b; }
+    tr:last-child td { border-bottom: 0; }
+    code, pre { font-family: ui-monospace, monospace; font-size: 13px; }
+    pre { overflow: auto; padding: 20px; background: #eef3ed; border-radius: 8px; }
+    .diagram { margin: 28px 0; border: 1px solid #cddbd2; border-radius: 12px; overflow: hidden; background: #fff; }
+    .diagram-surface { overflow: auto; padding: 22px 16px; }
+    .diagram-surface > svg { display: block; width: 100%; min-width: 660px; max-width: none !important; height: auto; margin: auto; }
+    figcaption { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; background: #f1f6f1; border-top: 1px solid #dde6df; color: #496355; font-size: 12px; line-height: 1.5; }
+    .diagram-actions { display: flex; gap: 8px; }
+    .diagram-actions button { padding: 4px 9px; font-size: 12px; }
+    dialog { width: min(1600px, 96vw); max-width: 96vw; height: 94vh; max-height: 94vh; border: 1px solid #adc6b6; border-radius: 14px; padding: 0; background: #fff; color: var(--ink); }
+    dialog::backdrop { background: #16271fd6; }
+    .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: #eff5ee; border-bottom: 1px solid var(--line); }
+    .dialog-heading h2 { font-size: 16px; letter-spacing: 0; border: 0; margin: 0; padding: 0; }
+    .dialog-heading .controls { display: flex; gap: 6px; align-items: center; }
+    .diagram-viewport { overflow: auto; height: calc(100% - 76px); padding: 20px; }
+    .diagram-viewport svg { display: block; max-width: none !important; height: auto; }
+    footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 180px minmax(0, 1fr); gap: 28px; }
+      .diagram-surface { padding: 16px 10px; }
+      figcaption { align-items: flex-start; flex-direction: column; gap: 10px; }
+    }
+    @media (max-width: 760px) {
+      .masthead { padding: 16px 20px; }
+      .masthead span { font-size: 9px; }
+      .layout { display: block; padding: 24px 20px 48px; }
+      aside { position: static; margin-bottom: 32px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+      aside details[open] nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      aside nav a { font-size: 11px; }
+      .side-note { display: none; }
+      body { font-size: 15px; }
+      h1 { font-size: 38px; }
+      h1 + p { font-size: 18px; }
+      h2 { font-size: 23px; margin-top: 42px; }
+      .dialog-heading { flex-direction: column; align-items: flex-start; padding: 12px; }
+      .diagram-viewport { height: calc(100% - 108px); padding: 12px; }
+      th, td { padding: 12px; min-width: 120px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media print {
+      .masthead, aside, .diagram-actions, dialog { display: none; }
+      .layout { display: block; padding: 0; }
+      body { background: #fff; font-size: 11pt; }
+      main { max-width: none; }
+      h1 { font-size: 32pt; }
+      h2 { break-after: avoid; margin-top: 24px; }
+      .diagram { break-inside: avoid; }
+      .diagram-surface > svg { min-width: 0 !important; }
+      .table-scroll { overflow: visible; }
+      th, td { min-width: 0; font-size: 9pt; }
+    }
+  </style>
+</head>
+<body id="top">
+  <header class="masthead">
+    <a class="brand" href="#top">fieldwork</a>
+    <span>PROJECT FIELD NOTES / 01<br>IMPLEMENTATION · 03 OCT 2026</span>
+  </header>
+  <div class="layout">
+    <aside aria-label="Guide contents">
+      <details open>
+        <summary>In this guide</summary>
+        <nav aria-label="Sections">@@CONTENTS@@</nav>
+      </details>
+      <p class="side-note">A shared record for people<br>and their own agents.<br><br>Diagrams are embedded.<br>Enlarge to inspect, or save as SVG.<br>This guide works offline.</p>
+    </aside>
+    <main>
+      @@BODY@@
+      <footer>Generated from <a href="https://github.com/jmorrell/turbo-octo-carnival/blob/main/docs/overview.md">docs/overview.md</a>. Diagram source is Mermaid; the application needs no documentation-rendering dependencies.</footer>
+    </main>
+  </div>
+  <dialog aria-labelledby="diagram-title">
+    <div class="dialog-heading">
+      <h2 id="diagram-title">Architecture diagram</h2>
+      <div class="controls">
+        <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+        <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+        <button type="button" data-fit>Fit width</button>
+        <button type="button" data-close>Close</button>
+      </div>
+    </div>
+    <div class="diagram-viewport" tabindex="0" aria-label="Scrollable enlarged diagram"></div>
+  </dialog>
+  <script>
+    const dialog = document.querySelector('dialog');
+    const viewport = document.querySelector('.diagram-viewport');
+    if (matchMedia('(max-width: 760px)').matches) document.querySelector('aside details').open = false;
+    let enlarged, zoom = 1, originalWidth = 900;
+    function size(value) {
+      zoom = Math.max(.15, Math.min(4, value));
+      enlarged.style.width = originalWidth * zoom + 'px';
+    }
+    function save(figure) {
+      const svg = figure.querySelector('svg');
+      const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'fieldwork-diagram-' + figure.dataset.diagram + '.svg';
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    document.querySelectorAll('.diagram').forEach(figure => {
+      figure.querySelector('[data-enlarge]').addEventListener('click', () => {
+        enlarged = figure.querySelector('svg').cloneNode(true);
+        // Mermaid IDs scope its styles and marker references; keep the clone in
+        // a shadow root so the main document retains unique IDs.
+        const holder = document.createElement('div');
+        holder.attachShadow({ mode: 'open' }).append(enlarged);
+        viewport.replaceChildren(holder);
+        document.querySelector('#diagram-title').textContent = figure.dataset.title;
+        dialog.showModal();
+        originalWidth = enlarged.viewBox.baseVal.width || 900;
+        enlarged.style.maxWidth = 'none';
+        enlarged.style.height = 'auto';
+        size(1);
+        viewport.scrollTop = viewport.scrollLeft = 0;
+      });
+      figure.querySelector('[data-save]').addEventListener('click', () => save(figure));
+    });
+    document.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+    document.querySelector('[data-fit]').addEventListener('click', () => size((viewport.clientWidth - 40) / originalWidth));
+    document.querySelectorAll('[data-zoom]').forEach(button => button.addEventListener('click', () =>
+      size(zoom * (button.dataset.zoom === 'in' ? 1.25 : .8))));
+  </script>
+</body>
+</html>
