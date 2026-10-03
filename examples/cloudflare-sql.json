@@ -1,0 +1,12 @@
+{
+  "title": "HTTP requests by response status",
+  "source": "cloudflare",
+  "query": {
+    "query": "SELECT edgeResponseStatus AS status, COUNT(*) AS requests\nFROM events.httpRequests\nWHERE timestamp >= $start AND timestamp <= $end\nGROUP BY edgeResponseStatus\nORDER BY requests DESC\nLIMIT 20",
+    "params": {
+      "start": "2026-10-03T10:00:00Z",
+      "end": "2026-10-03T11:00:00Z"
+    }
+  },
+  "view": "table"
+}

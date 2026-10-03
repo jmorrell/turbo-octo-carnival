@@ -44,6 +44,9 @@ The actor and harness fields are display labels, not verified identities. Each i
     npm run --silent agent -- query --file examples/query.json
     npm run --silent agent -- publish --file examples/import.json
     npm run --silent agent -- get EVIDENCE_ID
+    npm run --silent agent -- datasets
+    npm run --silent agent -- datasets events.httpRequests
+    npm run --silent agent -- query --file examples/cloudflare-sql.json
     npm run --silent agent -- fork EVIDENCE_ID --title "Check the retry policy"
     npm run --silent agent -- component --code examples/render.js --input EVIDENCE_ID
     npm run --silent agent -- changes --after 0
@@ -76,21 +79,35 @@ No model runs inside Fieldwork. The agent reads the room, uses its existing tool
 | Path | What gets recorded |
 | --- | --- |
 | Synthetic telemetry adapter | Resolved query, absolute time window, and result |
-| Cloudflare Workers Observability adapter | Native query body, fixed API endpoint, capture time, and full response envelope |
+| Cloudflare unified SQL adapter | SQL, parameters, resolved scope and connection, capture time, full result, and returned execution statistics |
 | Import from any tool | Actual JSON output, supplied source details, and optional rerun instructions |
 | Custom component | Saved input artifact IDs, JavaScript source, validated drawing, and an SVG snapshot |
 | Finding | Interpretation, status, and cited evidence IDs |
 
 Captured and imported origins are labeled differently. A hash proves which saved JSON a view used; it does not prove the source's truthfulness. Deterministic execution is not a condition of publication. Reruns are new observations, not replacements for history.
 
-To enable the optional Cloudflare adapter locally, create a .dev.vars file:
+The Cloudflare source uses the [unified Analytics SQL API](https://developers.cloudflare.com/analytics/sql-api/) released on 2 October 2026. It supports either the native Workers binding or a token connection to the new SQL endpoint.
+
+For token-free queries against the account deploying Fieldwork, enable this entry in wrangler.jsonc:
+
+    "analytics": { "binding": "ANALYTICS_SQL" }
+
+The binding requires Wrangler 4.145.0 or later (the repository already pins a newer version). It supplies account scope automatically; put the time predicate in SQL. The binding currently excludes Log Explorer datasets and does not support explicit FORMAT, scope, or time_range options.
+
+For local development, dataset discovery, zone-scoped queries, or Log Explorer, configure the SQL endpoint connection in .dev.vars:
 
     CF_OBSERVABILITY_ACCOUNT_ID=your-account-id
-    CF_OBSERVABILITY_API_TOKEN=your-read-only-telemetry-token
+    CF_OBSERVABILITY_API_TOKEN=your-analytics-read-token
 
-The adapter calls the Workers Observability telemetry query endpoint with an absolute timeframe and dry=true. It preserves the raw response; an agent can publish a chart-shaped transformation or create a custom view over it. The native Cloudflare integration has not been exercised against a live account in this environment.
+The token needs **Account Analytics Read**, plus any dataset-specific product permissions. It calls **https://api.cloudflare.com/client/v4/analytics/sql**, supplying the configured account as the default request scope. An explicit scope can select another account or zone authorized by the token. Use request-level scope rather than tenancy predicates in SQL.
 
-This PoC uses one operator-configured Cloudflare account. Every holder of a room key can query that account through the adapter. Per-user source permissions and OAuth are future work; existing agent tools remain another way to collect data.
+The SQL editor supports named or positional parameters, dataset/column discovery, and optional request-level scope and time ranges. Discovery uses the token connection even if queries use the binding. Query results render as tables while preserving the complete response, including metadata and statistics, in the artifact. Line/heatmap views still use their documented chart schemas; agents can publish a transformation or create a custom view over saved SQL results.
+
+Automatic connection selection prefers an available binding for plain SQL/parameter requests; scope or time_range options use the token connection. The chosen connection is saved and retained on rerun. Explicit transport values binding and http are also accepted. Relative SQL windows are allowed and preserved verbatim; use absolute time parameters when repeatability matters. Update the example file's timestamps to a retained interval in your account.
+
+SQL request contracts and responses are tested with stubs; the integration has not been exercised against a live Cloudflare account in this environment. See [the SQL integration guide](docs/cloudflare-sql.md).
+
+Every room-key holder can use the operator-configured binding or token with its granted source permissions. Per-user source permissions and OAuth are future work; existing agent tools remain another way to collect data. [Gatekeeper reuse notes](docs/gatekeepers.md) describe how Cloudflare OS could supply this boundary.
 
 ## Deploy on Cloudflare
 

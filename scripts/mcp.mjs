@@ -23,11 +23,21 @@ register('get_investigation', 'Read the room, branches, findings, and artifact m
 register('get_changes', 'Read events since a cursor. Continue while hasMore is true; store the returned cursor for your next turn.', { after: z.number().int().min(0).default(0) }, ({ after }) => call('/changes?after=' + after), true);
 register('get_evidence', 'Read an immutable artifact, including its saved data, known provenance, recipe, and component code.', { id: z.string() }, ({ id }) => call('/evidence/' + encodeURIComponent(id)), true);
 register('list_sources', 'List source adapters. Imported evidence can come from any external tool, without an adapter.', {}, () => call('/sources', undefined, { global: true }), true);
+register('list_cloudflare_datasets', 'Discover current Cloudflare SQL datasets, sampling, and availability; pass dataset_name and include_columns to inspect fields. Discovery requires an account ID and Analytics Read token even when queries use the binding. Custom attributes are discovered from seven days of data and may be silently truncated; catalog presence does not guarantee query permission.', {
+  dataset_name: z.string().optional(),
+  include_columns: z.boolean().default(false),
+  include_custom_attributes: z.boolean().default(false),
+  include_wae: z.boolean().default(true), include_lex: z.boolean().default(true),
+}, args => {
+  const params = new URLSearchParams(Object.entries(args).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)]));
+  return call('/sources/cloudflare/datasets?' + params);
+}, true);
 const branchId = z.string().optional();
-register('run_query', 'Capture a native source query and its output. The demo has latency, heatmap, errors metrics for 2026-10-03 10:00–11:00 UTC. Cloudflare requires server configuration.', {
+register('run_query', 'Capture a query and its output. For source cloudflare, query is {query:"SELECT ...", params:{...}} using the unified SQL API; use $name or $1 placeholders. Discover datasets first. Prefer explicit time parameters for replay, but relative SQL windows are allowed. Scope and time_range request options require HTTP. The binding supports account scope and default JSON, excluding Log Explorer. HTTP returns default JSON or FORMAT JSON; do not request text formats. Default HTTP scope is the configured account; omit tenancy predicates from SQL. Full rows, metadata, and execution statistics are archived; use view table for SQL rows. The demo accepts metric latency, heatmap, or errors during 2026-10-03 10:00–11:00 UTC.', {
   title: z.string(), source: z.enum(['demo-telemetry', 'cloudflare']),
   query: z.record(z.string(), z.unknown()), view: z.enum(['line', 'heatmap', 'table', 'json']).default('json'),
   parentIds: z.array(z.string()).default([]), branchId,
+  transport: z.enum(['binding', 'http']).optional(),
 }, args => call('/query', attributed({ ...args, branchId: args.branchId || connection().branchId })));
 register('publish_evidence', 'Publish output from any tool. Preserve the actual data; identify known sources honestly. Recipe is optional and is never executed on import.', {
   title: z.string(), description: z.string().optional(),

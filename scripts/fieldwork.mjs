@@ -9,6 +9,7 @@ const { positionals, values } = parseArgs({
     file: { type: 'string' }, code: { type: 'string' }, input: { type: 'string' },
     title: { type: 'string' }, after: { type: 'string' }, output: { type: 'string' },
     sample: { type: 'boolean' }, 'idempotency-key': { type: 'string' },
+    'custom-attributes': { type: 'boolean' },
     help: { type: 'boolean', short: 'h' },
   },
 });
@@ -30,6 +31,7 @@ const usage = [
   'component --code render.js --input <id>      Run an isolated custom renderer',
   'rerun <evidence-id>                         Produce a new revision',
   'sources                                    List configured adapters',
+  'datasets [name] [--custom-attributes]       Discover Cloudflare SQL datasets and columns',
   'export --output investigation.json          Export metadata, saved data, and component code',
   '',
   'Writes accept --idempotency-key KEY. New writes get a random key by default.',
@@ -47,6 +49,12 @@ try {
     case 'changes': result = await call('/changes?after=' + encodeURIComponent(values.after || '0')); break;
     case 'get': if (!id) throw new Error('Supply an evidence ID.'); result = await call('/evidence/' + encodeURIComponent(id)); break;
     case 'sources': result = await call('/sources', undefined, { global: true }); break;
+    case 'datasets': {
+      const params = new URLSearchParams();
+      if (id) { params.set('dataset_name', id); params.set('include_columns', 'true'); }
+      if (values['custom-attributes']) params.set('include_custom_attributes', 'true');
+      result = await call('/sources/cloudflare/datasets?' + params); break;
+    }
     case 'query': result = await call('/query', attributed(payload), options); break;
     case 'publish': result = await call('/evidence', attributed(payload), options); break;
     case 'finding': result = await call('/findings', attributed(payload), options); break;

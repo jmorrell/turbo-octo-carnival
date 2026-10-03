@@ -198,6 +198,16 @@ test('CLI and MCP clients can contribute to the same investigation with their ow
     const client = new Client({ name: 'integration-test', version: '1.0.0' });
     await client.connect(transport);
     expect((await client.listTools()).tools.map(t => t.name)).toContain('publish_component');
+    expect((await client.listTools()).tools.map(t => t.name)).toContain('list_cloudflare_datasets');
+    const sql = await client.callTool({ name: 'run_query', arguments: {
+      title: 'SQL contract', source: 'cloudflare', transport: 'http', view: 'table',
+      query: { query: 'SELECT COUNT(*) AS requests FROM events.httpRequests WHERE timestamp >= $start', params: { start: '2026-10-03T10:00:00Z' } },
+    } });
+    expect(sql.isError).toBe(true); // No upstream credentials in the integration fixture.
+    expect(JSON.stringify(sql.content)).toContain('Cloudflare SQL is not connected');
+    const catalog = await client.callTool({ name: 'list_cloudflare_datasets', arguments: { dataset_name: 'events.httpRequests', include_columns: true } });
+    expect(catalog.isError).toBe(true);
+    expect(JSON.stringify(catalog.content)).toContain('Dataset discovery requires');
     const posted = await client.callTool({ name: 'publish_evidence', arguments: { ...payload, title: 'MCP observation', view: 'table' } });
     expect(posted.isError).not.toBe(true);
     const state = await (await r.get()).json();

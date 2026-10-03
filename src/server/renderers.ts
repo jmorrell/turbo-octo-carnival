@@ -1,5 +1,5 @@
 import { drawingSchema, type Drawing } from '../shared/model';
-import { boundedText } from './sources';
+import { boundedText } from './http';
 
 // Server-authored allowlist. No URLs, CSS, raw HTML, event handlers, or foreignObject.
 const attributes = new Set([

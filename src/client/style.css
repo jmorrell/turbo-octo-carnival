@@ -155,6 +155,9 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: #76a993
 .card-loading { height: 226px; display: grid; place-items: center; color: #789a8a; }
 .view-fallback { color: #bda57e; font-size: 11px; margin: 8px; }
 .mobile-thread-picker { display: none; }
+.sql-options, .sql-catalog { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; }
+.sql-options summary, .sql-catalog summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+.sql-options label, .sql-catalog label { margin-top: 12px; }
 .finding-card { display: flex; gap: 15px; grid-column: 1 / -1; padding: 19px 21px 15px; background: linear-gradient(100deg, #1c2b27, #182322); border-color: #364b3c; order: -1; }
 .finding-icon { width: 32px; height: 32px; background: #2b4032; border: 1px solid #3e5440; border-radius: 6px; color: #c7d4a1; display: grid; place-items: center; flex-shrink: 0; }
 .finding-content { min-width: 0; flex: 1; }

@@ -1,11 +1,13 @@
+import { boundedText } from './http';
 import { DurableObject } from 'cloudflare:workers';
 import { z } from 'zod';
 import {
   actorSchema, querySchema, importSchema, DEMO_FROM, DEMO_TO,
   type Actor, type Artifact, type Branch, type Evidence, type RoomEvent, type RoomState,
 } from '../shared/model';
-import { boundedText, capture, deploymentData, retryData, type SourceEnv } from './sources';
+import { capture, deploymentData, retryData, type SourceEnv } from './sources';
 import { drawingSvg, renderCustom, RETRY_RENDERER } from './renderers';
+import { discoverDatasets, sqlConnection } from './cloudflare-sql';
 
 interface Env extends SourceEnv {
   ROOMS: DurableObjectNamespace<InvestigationRoom>;
@@ -49,7 +51,7 @@ export default {
       if (url.pathname === '/api/sources') return json({
         sources: [
           { id: 'demo-telemetry', name: 'Telemetry fixture', ready: true, description: 'Synthetic checkout incident · 03 Oct 2026, 10:00–11:00 UTC' },
-          { id: 'cloudflare', name: 'Cloudflare O11y', ready: !!(env.CF_OBSERVABILITY_ACCOUNT_ID && env.CF_OBSERVABILITY_API_TOKEN), description: 'Native Workers telemetry queries' },
+          { id: 'cloudflare', name: 'Cloudflare O11y SQL', ready: Object.values(sqlConnection(env)).some(Boolean), connections: sqlConnection(env), description: 'Unified SQL across analytics and observability datasets' },
           { id: 'import', name: 'Anything your agent can reach', ready: true, description: 'JSON, tool output, scripts, files, and optional rerun instructions' },
         ],
       });
@@ -174,11 +176,11 @@ export class InvestigationRoom extends DurableObject<Env> {
   private async query(input: z.infer<typeof querySchema>): Promise<Evidence> {
     this.branch(input.branchId);
     this.validateParents(input.parentIds);
-    const result = await capture(input.source, input.query, this.env);
+    const result = await capture(input.source, input.query, this.env, input.transport);
     return this.save({
       title: input.title, description: '', branchId: input.branchId, parentIds: input.parentIds,
       actor: input.actor, source: result.source, kind: 'observation', origin: 'captured', view: input.view,
-      recipe: { source: input.source, query: result.query },
+      recipe: { source: input.source, query: result.query, ...(result.transport ? { transport: result.transport } : {}) },
     }, result.data);
   }
   private async imported(input: z.infer<typeof importSchema>): Promise<Evidence> {
@@ -231,6 +233,15 @@ export class InvestigationRoom extends DurableObject<Env> {
         return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': 'fieldwork' } });
       }
       if (request.method === 'GET') {
+        if (path === '/sources/cloudflare/datasets') {
+          const options: Record<string, unknown> = {};
+          for (const [key, value] of url.searchParams) {
+            if (key === 'dataset_name') options[key] = value;
+            else if (['include_columns', 'include_custom_attributes', 'include_wae', 'include_lex'].includes(key) && ['true', 'false'].includes(value)) options[key] = value === 'true';
+            else throw new Error('Invalid dataset discovery option: ' + key);
+          }
+          return json(await discoverDatasets(options, this.env));
+        }
         if (path === '/' || path === '/state') return json(this.state());
         if (path === '/changes') {
           const after = Math.max(0, Number(url.searchParams.get('after') ?? 0));
@@ -324,6 +335,7 @@ export class InvestigationRoom extends DurableObject<Env> {
       return this.query(querySchema.parse({
         ...input, title: evidence.title.slice(0, 152) + ' · rerun', source: evidence.recipe.source,
         query: evidence.recipe.query, view: evidence.view, parentIds: [evidence.id],
+        transport: evidence.recipe.transport,
       }));
     }
     throw new Error('Unknown operation.');

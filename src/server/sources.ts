@@ -1,60 +1,19 @@
 import { DEMO_FROM, DEMO_TO, type HeatmapData, type SeriesData } from '../shared/model';
+import { captureSQL, type CloudflareSQLEnv } from './cloudflare-sql';
+import type { SQLTransport } from '../shared/sql';
 
-export type SourceEnv = {
-  CF_OBSERVABILITY_ACCOUNT_ID?: string;
-  CF_OBSERVABILITY_API_TOKEN?: string;
-};
+export type SourceEnv = CloudflareSQLEnv;
 export type Capture = {
   data: unknown;
   query: Record<string, unknown>;
   source: { name: string; uri?: string; collectedAt: string };
+  transport?: SQLTransport;
 };
 
-export async function capture(source: string, input: Record<string, unknown>, env: SourceEnv): Promise<Capture> {
+export async function capture(source: string, input: Record<string, unknown>, env: SourceEnv, transport?: SQLTransport): Promise<Capture> {
   if (source === 'demo-telemetry') return fixture(input);
   if (source !== 'cloudflare') throw new Error('Unknown source');
-  if (!env.CF_OBSERVABILITY_ACCOUNT_ID || !env.CF_OBSERVABILITY_API_TOKEN) {
-    throw new Error('Cloudflare is not connected. Configure the account ID and read-only API token, or use the demo source.');
-  }
-  const timeframe = input.timeframe as { from?: number; to?: number } | undefined;
-  if (!Number.isFinite(timeframe?.from) || !Number.isFinite(timeframe?.to) || timeframe!.from! >= timeframe!.to!) {
-    throw new Error('Cloudflare queries require an absolute timeframe: { from, to } in Unix milliseconds.');
-  }
-  if (!['events', 'invocations', 'calculations', 'traces'].includes(String(input.view))) {
-    throw new Error('Choose a Cloudflare query view: events, invocations, calculations, or traces.');
-  }
-  const query = { ...input, dry: true };
-  const uri = 'https://api.cloudflare.com/client/v4/accounts/' +
-    encodeURIComponent(env.CF_OBSERVABILITY_ACCOUNT_ID) + '/workers/observability/telemetry/query';
-  const response = await fetch(uri, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + env.CF_OBSERVABILITY_API_TOKEN, 'Content-Type': 'application/json' },
-    body: JSON.stringify(query),
-    signal: AbortSignal.timeout(15000),
-  });
-  const text = await boundedText(response, 1024 * 1024);
-  if (!response.ok) throw new Error('Cloudflare query failed (HTTP ' + response.status + '). Check the configured scope and query.');
-  const envelope = JSON.parse(text);
-  if (envelope.success === false) throw new Error('Cloudflare rejected the query. Inspect its syntax and the configured source permissions.');
-  return { data: envelope, query, source: { name: 'Cloudflare O11y', uri, collectedAt: new Date().toISOString() } };
-}
-
-export async function boundedText(response: Response, limit: number): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) return '';
-  let total = 0;
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > limit) { await reader.cancel(); throw new Error('Response exceeds the 1 MiB capture limit. Narrow the query.'); }
-    chunks.push(value);
-  }
-  const output = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.byteLength; }
-  return new TextDecoder().decode(output);
+  return captureSQL(input, env, transport);
 }
 
 function fixture(input: Record<string, unknown>): Capture {

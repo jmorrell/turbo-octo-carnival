@@ -39,6 +39,7 @@ Requests and responses use JSON. Room endpoints are relative to **/api/rooms/:ro
 | GET | / | Metadata, branches, evidence summaries, recent events, presence, cursor |
 | GET | /changes?after=0 | Up to 200 ordered events, cursor, and hasMore |
 | GET | /evidence/:id | Full saved artifact |
+| GET | /sources/cloudflare/datasets | Discover SQL datasets, columns, and optional recent custom attributes; requires the room key |
 | POST | /query | Run demo-telemetry or cloudflare and capture a result |
 | POST | /evidence | Import JSON from any source |
 | POST | /findings | Publish an interpretation with status and cited parentIds |
@@ -49,6 +50,8 @@ Requests and responses use JSON. Room endpoints are relative to **/api/rooms/:ro
 | GET | /live | WebSocket upgrade; protocols fieldwork and ROOM_KEY |
 
 See the Zod schemas in src/shared/model.ts and the examples directory for exact request shapes. Branch IDs default to main. Artifacts and citations are scoped to their room; branches are organizational boundaries, not access boundaries.
+
+The cloudflare source uses the unified Analytics SQL API. Its query object contains SQL in query, optional params, and optional HTTP scope/time_range fields. The Workers binding supplies account scope and accepts SQL/params only. The chosen transport and exact request are saved in the recipe; the full response, including statistics and optional format metadata, is the saved data. Reruns retain that transport. See [SQL integration](cloudflare-sql.md) for connection details and the documented API contracts.
 
 Invite links put the room key in the URL fragment. The client removes it from the address bar after saving it in session storage. HTTP requests use a bearer header; WebSocket requests use the second offered subprotocol, avoiding credentials in request URLs. Only the key hash is retained in room metadata. Logs, exports, and evidence must not contain credentials.
 
@@ -102,6 +105,6 @@ This allows arbitrary JavaScript computation over captured evidence, including n
 
 ## Operational boundaries
 
-The workspace creation key protects hosted provisioning; each room has a separate bearer capability. All room-key holders can read and edit every thread and use any operator-configured source adapter. There is no per-user source authorization, rate limiting, revocation, or data redaction layer yet.
+The workspace creation key protects hosted provisioning; each room has a separate bearer capability. All room-key holders can read and edit every thread and use any operator-configured source adapter. SQL token connections can select scopes authorized by that token; native bindings use the deploying account. There is no per-user source authorization, rate limiting, revocation, or data redaction layer yet. The [Gatekeeper assessment](gatekeepers.md) covers reuse of Cloudflare OS's capability and observer model.
 
 Archive data is durable independently of chat history and source retention. It is not an automatic compliance archive: configure backups, lifecycle rules, retention controls, budgets, and operational ownership before using it as an organizational record.

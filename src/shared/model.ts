@@ -10,6 +10,7 @@ export type ViewKind = z.infer<typeof viewSchema>;
 export const querySchema = z.object({
   source: z.enum(['demo-telemetry', 'cloudflare']),
   query: z.record(z.string(), z.unknown()),
+  transport: z.enum(['binding', 'http']).optional(),
   title: z.string().trim().min(1).max(160),
   branchId: z.string().max(80).default('main'),
   parentIds: z.array(z.string().max(80)).max(20).default([]),
@@ -54,7 +55,7 @@ export type Evidence = {
   origin: 'captured' | 'imported' | 'derived' | 'inference';
   view: ViewKind; rendererVersion: string;
   sha256: string; bytes: number;
-  recipe?: { source: string; query?: Record<string, unknown>; instructions?: string };
+  recipe?: { source: string; query?: Record<string, unknown>; instructions?: string; transport?: 'binding' | 'http' };
   component?: { code: string; hash: string; inputIds: string[] };
   status?: 'open' | 'supported' | 'disproven';
 };

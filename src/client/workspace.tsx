@@ -9,6 +9,8 @@ import type { Actor, Artifact, Branch, Evidence, ViewKind } from '../shared/mode
 import { DEMO_FROM, DEMO_TO } from '../shared/model';
 import { download, request, RoomClient, roomKey, type State } from './api';
 import { ArtifactView, type Selection } from './views';
+import { DEFAULT_SQL, sqlQuerySchema } from '../shared/sql';
+import { SQLCatalog } from './sql-catalog';
 
 const originLabel = { captured: 'Adapter capture', imported: 'Agent-supplied origin', derived: 'Saved transformation', inference: 'Investigator interpretation' };
 const viewLabel = { line: 'Time series', heatmap: 'Heatmap', table: 'Table', json: 'JSON', custom: 'Custom component' };
@@ -190,7 +192,7 @@ function Workspace({ id }: { id: string }) {
         onComponent={() => setDialog('component')} onCopy={() => void copy(location.href, 'Evidence link copied')} />}
     </div>
     {toast && <div className="toast" role="status"><Check size={15} />{toast}</div>}
-    {dialog === 'query' && <QueryDialog actor={actor} branchId={branchId} initial={queryInitial} onClose={() => setDialog(null)} onSubmit={async data => {
+    {dialog === 'query' && <QueryDialog client={client} serverError={error} actor={actor} branchId={branchId} initial={queryInitial} onClose={() => setDialog(null)} onSubmit={async data => {
       const result = await run(() => client.post<Evidence>('/query', data), 'Query captured and saved');
       if (result) { setSelected(result.id); setDialog(null); setSelection(null); }
     }} busy={busy} />}
@@ -276,25 +278,54 @@ function TextDialog({ title, subtitle, label, placeholder, initial = '', action,
   const [value, setValue] = useState(initial);
   return <Modal title={title} subtitle={subtitle} onClose={onClose}><form onSubmit={e => { e.preventDefault(); onSubmit(value); }}><label>{label}<input autoFocus value={value} onChange={e => setValue(e.target.value)} required maxLength={60} placeholder={placeholder} /></label><div className="modal-actions"><Button onClick={onClose}>Cancel</Button><Button primary type="submit" disabled={busy || !value.trim()}>{busy && <LoaderCircle className="spin" size={14} />}{action}<ArrowRight size={14} /></Button></div></form></Modal>;
 }
-function QueryDialog({ actor, branchId, initial, onClose, onSubmit, busy }: { actor: Actor; branchId: string; initial: Selection | null; onClose: () => void; onSubmit: (data: unknown) => void; busy: boolean }) {
+function QueryDialog({ client, serverError, actor, branchId, initial, onClose, onSubmit, busy }: { client: RoomClient; serverError: string; actor: Actor; branchId: string; initial: Selection | null; onClose: () => void; onSubmit: (data: unknown) => void; busy: boolean }) {
   const [source, setSource] = useState('demo-telemetry'), [view, setView] = useState<ViewKind>('line');
   const [title, setTitle] = useState(initial ? 'Closer look at the selected window' : 'Explore checkout latency');
   const [query, setQuery] = useState(JSON.stringify({ metric: 'latency', from: initial?.from ?? DEMO_FROM, to: initial?.to ?? DEMO_TO, region: 'all' }, null, 2));
+  const [sql, setSQL] = useState(DEFAULT_SQL), [transport, setTransport] = useState('auto');
+  const [params, setParams] = useState(() => JSON.stringify({
+    start: new Date(initial?.from ?? Date.now() - 3600000).toISOString(),
+    end: new Date(initial?.to ?? Date.now()).toISOString(),
+  }, null, 2));
+  const [sqlOptions, setSQLOptions] = useState('{}');
   const [error, setError] = useState('');
   function changeSource(value: string) {
     setSource(value);
-    if (value === 'cloudflare') { setView('json'); setQuery(JSON.stringify({ view: 'events', timeframe: { from: Date.now() - 3600000, to: Date.now() }, limit: 100, queryId: 'fieldwork', parameters: { datasets: ['cloudflare-workers'] } }, null, 2)); }
-    else { setView('line'); setQuery(JSON.stringify({ metric: 'latency', from: DEMO_FROM, to: DEMO_TO }, null, 2)); }
+    if (value === 'cloudflare') { setView('table'); if (title === 'Explore checkout latency') setTitle('HTTP requests by response status'); }
+    else setView('line');
   }
   return <Modal title="Ask the data a question" subtitle="The request and its output will be captured together. Your agent can use this same API." onClose={onClose} wide>
-    <form onSubmit={e => { e.preventDefault(); try { setError(''); onSubmit({ title, source, query: JSON.parse(query), view, actor, branchId, parentIds: initial ? [initial.parentId] : [] }); } catch { setError('The query must be valid JSON.'); } }}>
+    <form onSubmit={e => {
+      e.preventDefault();
+      try {
+        setError('');
+        let request = JSON.parse(source === 'cloudflare' ? '{}' : query);
+        if (source === 'cloudflare') {
+          const options = sqlQuerySchema.pick({ scope: true, time_range: true }).parse(JSON.parse(sqlOptions));
+          const parsed = sqlQuerySchema.safeParse({ query: sql, params: JSON.parse(params), ...options });
+          if (!parsed.success) throw new Error(parsed.error.issues.map(issue => issue.message).join('; '));
+          request = parsed.data;
+        }
+        onSubmit({ title, source, query: request, ...(source === 'cloudflare' && transport !== 'auto' ? { transport } : {}), view, actor, branchId, parentIds: initial ? [initial.parentId] : [] });
+      } catch (error) { setError(source === 'cloudflare' ? 'Check SQL parameters and request options: ' + (error as Error).message : 'The query must be valid JSON.'); }
+    }}>
       <label>Evidence title<input autoFocus value={title} onChange={e => setTitle(e.target.value)} required maxLength={160} /></label>
-      <div className="form-row"><label>Data source<select value={source} onChange={e => changeSource(e.target.value)}><option value="demo-telemetry">Telemetry fixture</option><option value="cloudflare">Cloudflare O11y · requires connection</option></select></label><label>Visualization<select value={view} onChange={e => {
+      <div className="form-row"><label>Data source<select aria-label="Data source" value={source} onChange={e => changeSource(e.target.value)}><option value="demo-telemetry">Telemetry fixture</option><option value="cloudflare">Cloudflare O11y SQL</option></select></label><label>Visualization<select value={view} onChange={e => {
         const next = e.target.value as ViewKind; setView(next);
         if (source === 'demo-telemetry' && ['line', 'heatmap'].includes(next)) { try { setQuery(JSON.stringify({ ...JSON.parse(query), metric: next === 'heatmap' ? 'heatmap' : 'latency' }, null, 2)); } catch { /* keep edits */ } }
       }}><option value="line">Line chart</option><option value="heatmap">Heatmap</option><option value="table">Table</option><option value="json">JSON</option></select></label></div>
-      <label>Native query<textarea className="code-editor" rows={10} value={query} onChange={e => setQuery(e.target.value)} spellCheck={false} /></label>
-      <div className="form-note"><ShieldCheck size={14} />Outputs are saved before they appear in the investigation.</div>{error && <div className="error">{error}</div>}
+      {source === 'cloudflare' ? <>
+        <label>SQL query<textarea className="code-editor" rows={8} value={sql} onChange={e => setSQL(e.target.value)} spellCheck={false} required /></label>
+        <label>SQL parameters · JSON object or array<textarea className="code-editor" rows={4} value={params} onChange={e => setParams(e.target.value)} spellCheck={false} /></label>
+        <p className="muted">Use one SELECT statement and a lower time bound. Fieldwork supplies account scope. The example uses events.httpRequests; discover the available catalog below.</p>
+        <details className="sql-options"><summary>Connection and request options</summary>
+          <label>SQL connection<select value={transport} onChange={e => setTransport(e.target.value)}><option value="auto">Automatic</option><option value="binding">Workers binding</option><option value="http">SQL API with token</option></select></label>
+          <label>Scope and time_range · optional JSON<textarea className="code-editor" rows={3} value={sqlOptions} onChange={e => setSQLOptions(e.target.value)} spellCheck={false} /></label>
+          <p className="muted">Scope overrides and time_range require the token connection. Remove timestamp predicates from SQL when using time_range. The binding supports account datasets; Log Explorer datasets require the token connection.</p>
+        </details>
+        <SQLCatalog client={client} />
+      </> : <label>Native query<textarea className="code-editor" rows={10} value={query} onChange={e => setQuery(e.target.value)} spellCheck={false} /></label>}
+      <div className="form-note"><ShieldCheck size={14} />Outputs are saved before they appear in the investigation.</div>{(error || serverError) && <div className="error">{error || serverError}</div>}
       <div className="modal-actions"><Button onClick={onClose}>Cancel</Button><Button primary type="submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={14} /> : <Play size={14} />}Run & capture</Button></div>
     </form>
   </Modal>;
@@ -332,7 +363,7 @@ function SourcesDialog({ onClose, onImport }: { onClose: () => void; onImport: (
   useEffect(() => { request<{ sources: typeof sources }>('/api/sources').then(r => setSources(r.sources)).catch(e => setError(e.message)); }, []);
   return <Modal title="Evidence can come from anywhere" subtitle="Adapters capture provenance automatically. Imports keep your agent free to explore." onClose={onClose}>
     <div className="source-list">{sources.map(s => <div key={s.id}><Database size={20} /><div><h3>{s.name}</h3><p>{s.description}</p></div><span className={s.ready ? 'source-ready' : 'source-pending'}>{s.ready ? 'Available' : 'Not connected'}</span></div>)}</div>
-    {error && <div className="error">{error}</div>}<p className="muted">Add Cloudflare credentials on the server to enable live telemetry. Other tools can publish JSON directly; they do not need a native adapter.</p><div className="modal-actions"><Button onClick={onClose}>Done</Button><Button primary onClick={onImport}><Plus size={14} />Import evidence</Button></div>
+    {error && <div className="error">{error}</div>}<p className="muted">Connect Cloudflare through its Analytics SQL binding or an Analytics Read API token. Other tools can publish JSON directly; they do not need a native adapter.</p><div className="modal-actions"><Button onClick={onClose}>Done</Button><Button primary onClick={onImport}><Plus size={14} />Import evidence</Button></div>
   </Modal>;
 }
 function FindingDialog({ evidence, actor, branchId, onClose, onSubmit, busy }: { evidence: Evidence[]; actor: Actor; branchId: string; onClose: () => void; onSubmit: (data: unknown) => void; busy: boolean }) {

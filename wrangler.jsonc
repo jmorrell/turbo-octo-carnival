@@ -15,5 +15,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InvestigationRoom"] }],
   "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "fieldwork-evidence" }],
   "worker_loaders": [{ "binding": "RENDERERS" }],
+  // Optional token-free SQL access to this Worker's account (requires Cloudflare connectivity):
+  // "analytics": { "binding": "ANALYTICS_SQL" },
   "observability": { "enabled": true }
 }

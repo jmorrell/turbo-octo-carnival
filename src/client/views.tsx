@@ -78,12 +78,15 @@ export function ArtifactView({ artifact, onSelect }: { artifact: Artifact; onSel
     // Image documents cannot run scripts; the server additionally validates every SVG node/attribute.
     return <img className="custom-view" src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(artifact.fallbackSvg)} alt={artifact.title} />;
   }
-  if (artifact.view === 'table' && Array.isArray(artifact.data)) {
-    const rows = artifact.data.slice(0, 100) as Record<string, unknown>[];
+  const tableData = artifact.data && typeof artifact.data === 'object' && 'data' in artifact.data && Array.isArray(artifact.data.data)
+    ? artifact.data.data : artifact.data;
+  if (artifact.view === 'table' && Array.isArray(tableData)) {
+    if (!tableData.length) return <p className="view-fallback">The query returned no rows. Its request and full response are saved.</p>;
+    const rows = tableData.slice(0, 100) as Record<string, unknown>[];
     const columns = [...new Set(rows.flatMap(r => r && typeof r === 'object' ? Object.keys(r) : ['value']))].slice(0, 8);
     return <div className="table-scroll"><table className="data-table"><thead><tr>{columns.map(c => <th key={c}>{c}</th>)}</tr></thead>
       <tbody>{rows.map((r, i) => <tr key={i}>{columns.map(c => <td key={c}>{formatValue(r && typeof r === 'object' ? r[c] : r)}</td>)}</tr>)}</tbody></table>
-      {artifact.data.length > 100 && <small>Showing the first 100 rows. Full output is preserved in the artifact.</small>}</div>;
+      {tableData.length > 100 && <small>Showing the first 100 rows. Full output is preserved in the artifact.</small>}</div>;
   }
   return <pre className="json-preview">{JSON.stringify(artifact.data, null, 2)?.slice(0, 16000)}</pre>;
 }
