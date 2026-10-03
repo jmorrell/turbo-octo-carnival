@@ -1,0 +1,6 @@
+{
+  "title": "Checkout latency by region",
+  "source": "demo-telemetry",
+  "query": { "metric": "latency", "from": 1791021600000, "to": 1791025200000, "region": "all" },
+  "view": "line"
+}

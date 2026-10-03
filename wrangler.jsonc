@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fieldwork",
+  "main": "src/server/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "InvestigationRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["InvestigationRoom"] }],
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "fieldwork-evidence" }],
+  "worker_loaders": [{ "binding": "RENDERERS" }],
+  "observability": { "enabled": true }
+}

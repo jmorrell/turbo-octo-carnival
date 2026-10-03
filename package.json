@@ -1,0 +1,35 @@
+{
+  "name": "fieldwork",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "test": "playwright test",
+    "preview": "npm run build && wrangler dev --port 8787",
+    "deploy": "npm run build && wrangler deploy",
+    "agent": "node scripts/fieldwork.mjs",
+    "mcp": "node scripts/mcp.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "echarts": "6.1.0",
+    "lucide-react": "1.51.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261003.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "wrangler": "4.147.0"
+  }
+}
