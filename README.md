@@ -6,6 +6,8 @@ Keep using Codex, pi, OpenCode, scripts, and whichever data sources help. Publis
 
 **Start with the [illustrated project overview](docs/overview.md)** for architecture diagrams, a worked investigation, the custom component boundary, and what is implemented versus proposed. An [offline HTML edition](docs/overview.html) includes rendered diagrams you can enlarge.
 
+The next [widget and interaction design](docs/widgets-and-interactions.md) covers richer tables, source-linked code, trace waterfalls, Markdown, and sending selections plus questions back to your own agent. These additions are planned; they are not implemented by the current PoC.
+
 ![Fieldwork: a shared investigation with saved telemetry, deployment events, and an agent-authored retry timeline](docs/workspace.png)
 
 ## Try it

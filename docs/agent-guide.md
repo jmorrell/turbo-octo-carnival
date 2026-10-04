@@ -45,3 +45,7 @@ The renderer receives complete artifacts, so input data is available at inputs[0
 Save the room ID, branch ID, and last processed change cursor in your own session context. Keep the key in configuration, separate from evidence.
 
 Use get_investigation or the CLI's state command to recover context. Use get_changes or changes --after CURSOR to catch up; keep paging while hasMore is true. Fetch full artifacts only where needed. The room should be enough to reconstruct the investigation without reconstructing somebody else's chat.
+
+## Planned selection and question handoff
+
+The [widget and interaction design](widgets-and-interactions.md) describes how a person could select rows, spans, code lines, or a chart region and send a contextual question to an agent session. The current MCP server exposes investigation tools only; it does not automatically inject messages or wake an agent when someone interacts with the workspace.
