@@ -10,6 +10,7 @@ Fieldwork's standard widgets should be useful tools for investigation in their o
 | --- | --- | --- |
 | Tables | Typed sorting, filters, column resizing and visibility, sticky/pinned columns, keyboard navigation, row/cell selection, copying and export; virtualization or pagination instead of a silently truncated preview | Stable references to rows/cells in the saved result, selected columns, and relevant filters/sort order |
 | Source code | Syntax highlighting, original line numbers, a single snippet or a collection across files; exact commit-and-line permalinks; saved snippet text remains readable independently of the repository | Snippet IDs, repository, full commit ID, file paths, and original source line ranges |
+| Code diffs | Unified and side-by-side views, syntax and intra-line highlighting, multi-file navigation, expandable saved context, whitespace controls, and explicit additions/deletions/renames; pinned base/head revisions | Diff artifact, file change and hunk IDs, selected side, and original old/new line ranges with their revision references |
 | Trace waterfalls | Parent/child hierarchy, service identity, timing bars, zoom, expand/collapse, errors, events and attributes; selection of spans or an interval | Trace and span IDs, selected interval, and the artifact containing the trace |
 | Markdown | Rendered notes and findings, headings, lists, tables, fenced code, and clickable evidence citations | Artifact and citation references, plus a selected excerpt when useful |
 | Line charts and heatmaps | Existing charts, extended from a time selection to semantic region selection | Time interval, selected series or buckets, value bounds and units where relevant |
@@ -38,6 +39,20 @@ Use the commit ID, not a moving branch name. Preserve original line numbers when
 
 Code is displayed as text. Markdown uses a restricted renderer with raw HTML disabled, safe link handling, and no automatic external embeds. Both use host-controlled rendering rather than giving a note or snippet browser execution privileges.
 
+### Code diffs connect changes to observed behavior
+
+Diffs are a first-class built-in widget, usable both in the shared workspace and an MCP App. An investigator should be able to move from a latency regression to its deployment, inspect the relevant changes across files, and ask an agent about a particular hunk.
+
+The review experience needs unified and side-by-side layouts, syntax highlighting, intra-line changes, file navigation with change counts, folding and expansion of captured context, keyboard navigation, and selection across lines or hunks. Whitespace controls change the presentation while preserving the saved comparison. Renames, added/deleted files, binary changes, and file-mode changes need explicit treatment.
+
+Each comparison records the repository, exact base and head commit IDs when available, old/new paths, and comparison semantics. A direct comparison between deployed commits must be distinguishable from a merge-base comparison. Source links point to the corresponding revision and original line on each side, including deleted lines on the base revision.
+
+Archive the patch and captured before/after text, with content hashes and clear coverage. Expanding context should use the saved snapshot. If only a partial patch was captured, show that limit; fetching more content is a new capture with its own provenance. Retrospectives must not depend on an old pull request or a moving branch still being available.
+
+Uncommitted agent work is valid evidence too. Record its known base, captured working-tree content or patch, and hashes, labeling the uncommitted snapshot honestly. Do not require or invent a head commit to display it.
+
+Diff selections identify the artifact, file change, hunk, side, and original old/new line ranges. Switching layouts, hiding whitespace, or collapsing context must not change which code a question references. For example: **“Could this added retry loop explain the latency band?”** should carry the selected change, both captured versions, and links to the relevant telemetry artifacts.
+
 ### Trace data stays queryable
 
 A waterfall should preserve the underlying span records: trace ID, span ID, parent span ID, service, operation, timestamps, duration, status, attributes, events, and links when supplied. Explicit time units are required. Normalization must retain a link to the original saved source output.
@@ -52,7 +67,7 @@ Freeform notes can explain a plan, methodology, or an observation. Findings reta
 
 The intended flow is:
 
-1. Select a region, rows, source lines, or trace spans.
+1. Select a region, rows, source lines, diff lines/hunks, or trace spans.
 2. Choose **Ask agent**, type a question, and choose the connected agent session or leave it queued.
 3. Save the question and frozen selection in the room before attempting delivery.
 4. Deliver a compact reference and context to the chosen harness.
@@ -69,7 +84,7 @@ The saved interaction should include:
 | Target session reference | Route to the selected agent session; a display name alone is not a routing identity |
 | Question text | Keep the person's instruction distinct from data being inspected |
 | Artifact IDs and hashes | Identify the exact saved inputs |
-| Typed selection | Rows/cells, time/value ranges, series/buckets, code lines, or trace spans |
+| Typed selection | Rows/cells, time/value ranges, series/buckets, code lines, diff sides/lines/hunks, or trace spans |
 | View version and relevant view state | Preserve transformations, filters, grouping, and sorting that affected what the person saw |
 | Delivery and response references | Show whether the request is queued, accepted, answered, failed, or cancelled, and link the resulting artifacts |
 
@@ -165,12 +180,12 @@ Shared-room presence is separate from permission to steer an agent session. A co
 
 ## Suggested implementation sequence
 
-1. Define shared widget and semantic-selection contracts; build the tables, Markdown, source-code, and trace views on them.
+1. Define shared widget and semantic-selection contracts; build the tables, Markdown, source-code, diff, and trace views on them.
 2. Add the durable **Ask agent** request flow and an inspectable pending-request inbox, with explicit targeting and response links.
 3. Implement and verify one host adapter end to end: select, ask, deliver to an existing session, inspect evidence, publish a response.
 4. Add other harness adapters and an MCP Apps companion where supported, keeping the same saved request contract.
 
-Acceptance should include an agent going offline, duplicate delivery, reconnecting after compaction, selecting rows after sorting, changing the selection after asking, and two investigators using different harnesses. Success is the agent answering the intended question about the intended saved data, with a response the whole room can inspect.
+Acceptance should include an agent going offline, duplicate delivery, reconnecting after compaction, selecting rows after sorting, selecting deleted lines or a renamed file in a diff, changing diff layouts after selection, changing the selection after asking, and two investigators using different harnesses. Success is the agent answering the intended question about the intended saved data, with a response the whole room can inspect.
 
 ## Sources
 

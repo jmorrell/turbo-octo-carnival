@@ -208,7 +208,7 @@ The PoC does not infer a line chart or heatmap mapping for arbitrary SQL rows. A
 | Source access | Cloudflare SQL and imports from any tool | Operator-wide SQL connection; no per-user OAuth or source permissions |
 | Archive | SQLite index, R2 artifacts, JSON export | No configured backup/retention policy, deletion workflow, or self-contained interactive export |
 
-The [widget and interaction design](widgets-and-interactions.md) adds requirements for rich tables, commit-linked code snippets, trace waterfalls, Markdown, and a durable selection-plus-question workflow back to the investigator's own agent. Those are planned additions. The current chart selection still supports query seeding and copying context only.
+The [widget and interaction design](widgets-and-interactions.md) adds requirements for rich tables, commit-linked code snippets and diffs, trace waterfalls, Markdown, and a durable selection-plus-question workflow back to the investigator's own agent. Those are planned additions. The current chart selection still supports query seeding and copying context only.
 
 The local integration suite covers real workerd, SQLite Durable Objects, R2, Dynamic Workers, multiple browsers, and CLI/MCP clients. The 15 tests passed for the implementation documented here. SQL service responses and the native binding are stubbed in those tests; a live Cloudflare SQL account and hosted deployment have not been exercised in this environment.
 

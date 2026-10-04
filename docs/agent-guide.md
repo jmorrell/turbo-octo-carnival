@@ -48,4 +48,4 @@ Use get_investigation or the CLI's state command to recover context. Use get_cha
 
 ## Planned selection and question handoff
 
-The [widget and interaction design](widgets-and-interactions.md) describes how a person could select rows, spans, code lines, or a chart region and send a contextual question to an agent session. The current MCP server exposes investigation tools only; it does not automatically inject messages or wake an agent when someone interacts with the workspace.
+The [widget and interaction design](widgets-and-interactions.md) describes how a person could select rows, spans, code lines, diff hunks, or a chart region and send a contextual question to an agent session. The current MCP server exposes investigation tools only; it does not automatically inject messages or wake an agent when someone interacts with the workspace.
